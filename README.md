@@ -1,198 +1,258 @@
-# SERP Hawk CRM V2
+SerpHawk CRM – AWS Deployment
 
-AI-Powered CRM for SEO Agencies | Next.js + FastAPI + PostgreSQL + OpenAI
+1. Project Overview
 
-## Overview
+SerpHawk CRM is a web-based CRM application with:
 
-SERP Hawk CRM V2 is a comprehensive customer relationship management system designed specifically for SEO agencies and digital marketing firms. It manages the entire client lifecycle from cold outreach to project delivery, billing, and SEO monitoring.
+Frontend: Next.js
 
-### Key Features
+Backend: Python FastAPI
 
-- **Role-Based Access**: Admin, Employee, Intern, Client roles with appropriate permissions
-- **AI Email Agent**: Automated company research and personalized email generation
-- **Real-Time Messaging**: WebSocket-based chat system
-- **Service Management**: Catalog, quotes, invoicing, and billing
-- **SEO Tools**: Keyword rankings, competitor analysis, SEO audits
-- **Document Management**: File uploads, OCR for business cards
-- **Reporting**: PDF exports, monitoring dashboards
+Database: PostgreSQL
 
-## Tech Stack
+Containerization: Docker
 
-- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, Framer Motion
-- **Backend**: FastAPI (Python 3.13), SQLModel ORM, Uvicorn with WebSocket
-- **Database**: PostgreSQL (Neon Serverless)
-- **AI**: OpenAI GPT-4o-mini, Google Gemini (OCR)
-- **Integrations**: Outlook SMTP/IMAP, Webhooks, ReportLab PDFs
+Cloud: AWS
 
-## Deployment Guide
+The application is deployed with Next.js and FastAPI as separate Docker containers on Amazon EC2, while PostgreSQL is hosted on Amazon RDS.
 
-### Prerequisites
+2. AWS Architecture
 
-- Node.js 18+
-- Python 3.13+
-- PostgreSQL database (Neon recommended)
-- GitHub account
-- OpenAI API key
-- Google Gemini API key (for OCR)
+                         Internet
+                            |
+                            v
+                 +----------------------+
+                 |       AWS VPC        |
+                 |                      |
+                 |   Public Subnet      |
+                 |                      |
+                 |  +----------------+  |
+                 |  | EC2 Ubuntu     |  |
+                 |  | Docker         |  |
+                 |  |                |  |
+                 |  | Next.js :3000  |  |
+                 |  | FastAPI :8000  |  |
+                 |  +-------+--------+  |
+                 +----------|-----------+
+                            |
+                       PostgreSQL :5432
+                            |
+                            v
+                 +----------------------+
+                 | Amazon RDS PostgreSQL |
+                 | Private / No Public   |
+                 | Access                |
+                 | Database: serphawk    |
+                 +----------------------+
 
-### Backend Deployment
+3. AWS Services Used
 
-#### Option 1: Railway (Recommended)
+Amazon VPC
 
-1. Create a Railway account at [railway.app](https://railway.app)
-2. Connect your GitHub repository
-3. Add environment variables:
-   - `DATABASE_URL`: Your PostgreSQL connection string
-   - `OPENAI_API_KEY`: Your OpenAI API key
-   - `GEMINI_API_KEY`: Your Google Gemini API key
-   - `SECRET_KEY`: A random secret key for JWT
-   - `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`: Email settings
-4. Railway will automatically detect the `railway.json` and deploy
+Provides the isolated network environment for the application, including public and private subnets and network routing.
 
-#### Option 2: Heroku
+Public Subnet
 
-1. Create a Heroku account
-2. Install Heroku CLI
-3. Create a new app: `heroku create your-app-name`
-4. Add PostgreSQL addon: `heroku addons:create heroku-postgresql:hobby-dev`
-5. Set environment variables: `heroku config:set KEY=VALUE`
-6. Deploy: `git push heroku main`
+Hosts the EC2 application server so the web application can be reached from the Internet.
 
-#### Option 3: Manual Server
+Private Subnets
 
-1. Set up a server with Python 3.13+
-2. Install dependencies: `pip install -r requirements.txt`
-3. Set environment variables
-4. Run with: `uvicorn main:app --host 0.0.0.0 --port 8000`
+Used for the database layer. RDS is configured without public access.
 
-### Frontend Deployment
+Amazon EC2
 
-#### Option 1: Vercel (Recommended for Next.js)
+Runs Ubuntu 24.04 and hosts the Next.js and FastAPI Docker containers.
 
-1. Create a Vercel account at [vercel.com](https://vercel.com)
-2. Connect your GitHub repository
-3. Set the root directory to `frontend`
-4. Add environment variables:
-   - `wat `: Your backend API URL
-5. Deploy automatically
+Why EC2? It provides direct control over the application server and is suitable for this small deployment and assignment.
 
-#### Option 2: Netlify
+Amazon RDS for PostgreSQL
 
-1. Create a Netlify account
-2. Connect GitHub repo
-3. Set build command: `npm run build`
-4. Set publish directory: `frontend/out` (for static export) or `frontend/.next` (for SSR)
-5. Add environment variables
+Hosts the PostgreSQL database separately from the application server.
 
-### Database Setup
+Why RDS?
 
-1. Create a Neon PostgreSQL database at [neon.tech](https://neon.tech)
-2. Run the database migrations: `python create_tables.py`
-3. Seed initial data: `python seed_db.py`
+Managed PostgreSQL service
 
-### Environment Variables
+Separates database from application compute
 
-Create a `.env` file in the root directory:
+AWS manages the underlying database infrastructure
 
-```
-DATABASE_URL=postgresql://user:password@host:port/database
-OPENAI_API_KEY=your_openai_key
-GEMINI_API_KEY=your_gemini_key
-SECRET_KEY=your_secret_key
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000  # local development
+Security Groups
 
-# In Vercel set Environment Variable (Production):
-# NEXT_PUBLIC_API_BASE_URL=https://web-production-30b6.up.railway.app
-```
+Control network access:
 
-## Local Development
+SSH to EC2
 
-### Backend
+Frontend TCP 3000
 
-1. Create virtual environment: `python -m venv .venv`
-2. Activate: `source .venv/bin/activate`
-3. Install dependencies: `pip install -r requirements.txt`
-4. Run migrations: `python create_tables.py`
-5. Start server: `uvicorn main:app --reload`
+Backend TCP 8000
 
-### Frontend
+PostgreSQL TCP 5432 from the EC2 security group to RDS
 
-1. Navigate to frontend: `cd frontend`
-2. Install dependencies: `npm install`
-3. Start dev server: `npm run dev`
+RDS should never allow PostgreSQL from 0.0.0.0/0.
 
-## How to Add New Features
+Docker
 
-### Backend (FastAPI)
+Packages the frontend and backend into separate containers:
 
-1. **Add Database Models**: 
-   - Edit `database.py` to add new SQLModel classes
-   - Run `python create_tables.py` to create tables
+serphawk-frontend
 
-2. **Create API Endpoints**:
-   - Add routes in `main.py` or create new modules
-   - Follow RESTful conventions
-   - Add proper authentication/authorization
+serphawk-backend
 
-3. **Add Business Logic**:
-   - Create functions in appropriate modules under `modules/`
-   - Use dependency injection for database sessions
+4. Application Flow
 
-4. **Update Dependencies**:
-   - Add to `requirements.txt`
-   - Test with `pip install -r requirements.txt`
+User Browser
+     |
+     v
+Next.js Frontend :3000
+     |
+     | HTTP API
+     v
+FastAPI Backend :8000
+     |
+     | PostgreSQL :5432
+     v
+Amazon RDS PostgreSQL
 
-### Frontend (Next.js)
+The browser communicates with FastAPI. FastAPI handles application logic and database operations.
 
-1. **Create New Pages**:
-   - Add to `frontend/src/app/` following the routing structure
-   - Use TypeScript for type safety
+5. Backend Docker Deployment
 
-2. **Add Components**:
-   - Create reusable components in `frontend/src/components/`
-   - Follow existing patterns for consistency
+Build:
 
-3. **API Integration**:
-   - Use the existing API utilities in `frontend/src/lib/`
-   - Add new API calls as needed
+docker build -f Dockerfile.backend -t serphawk-backend .
 
-4. **Styling**:
-   - Use Tailwind CSS classes
-   - Follow the design system
+Run:
 
-### General Steps
+docker run -d   --name serphawk-backend   --env-file .env.aws   -p 8000:8000   serphawk-backend
 
-1. Plan the feature and database changes
-2. Implement backend API endpoints
-3. Update frontend to consume the new APIs
-4. Add proper error handling and validation
-5. Test thoroughly
-6. Update documentation
+6. Frontend Docker Deployment
 
-### Example: Adding a New Entity
+Build:
 
-1. Define the model in `database.py`
-2. Create CRUD endpoints in `main.py`
-3. Create frontend pages for list/view/edit
-4. Add navigation links
-5. Test the full flow
+cd frontend
 
-## API Documentation
+docker build   --build-arg NEXT_PUBLIC_API_BASE_URL=http://YOUR_EC2_PUBLIC_IP:8000   -t serphawk-frontend .
 
-The API documentation is available at `/docs` when the backend is running (Swagger UI) and `/redoc` for ReDoc.
+Run:
 
-## Contributing
+docker run -d   --name serphawk-frontend   -p 3000:3000   serphawk-frontend
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+NEXT_PUBLIC_API_BASE_URL tells the Next.js frontend where the FastAPI backend is hosted.
 
-## License
+7. Database Configuration
 
-This project is proprietary. All rights reserved.
+The backend uses an RDS connection string similar to:
+
+postgresql://postgres:<RDS_PASSWORD>@<RDS_ENDPOINT>:5432/serphawk
+
+Store it in an environment file:
+
+DATABASE_URL=postgresql://postgres:<RDS_PASSWORD>@<RDS_ENDPOINT>:5432/serphawk
+
+Never commit .env, .env.aws, passwords, API keys, or other secrets to GitHub.
+
+8. Database Initialization
+
+Create tables:
+
+docker run --rm   --env-file .env.aws   serphawk-backend   python create_tables.py
+
+Seed initial data:
+
+docker run --rm   --env-file .env.aws   serphawk-backend   python seed_db.py
+
+The deployed database was initialized with 29 CRM tables.
+
+9. Verification
+
+Backend health check:
+
+curl http://localhost:8000
+
+Expected:
+
+{"status":"ok","app":"SerpHawk CRM API","docs":"/docs"}
+
+Frontend:
+
+http://<EC2_PUBLIC_IP>:3000
+
+FastAPI documentation:
+
+http://<EC2_PUBLIC_IP>:8000/docs
+
+10. Security
+
+RDS is configured without public access.
+
+PostgreSQL 5432 should only accept traffic from the EC2/application security group.
+
+Do not expose database port 5432 to the Internet.
+
+Keep credentials and API keys out of GitHub.
+
+Restrict SSH access to trusted IP addresses where possible.
+
+The current assignment deployment exposes ports 3000 and 8000 for direct application testing.
+
+11. Deployment Checklist
+
+AWS VPC created
+
+Public subnet created
+
+Private subnets created
+
+EC2 Ubuntu 24.04 created
+
+RDS PostgreSQL created
+
+serphawk database created
+
+Database tables initialized
+
+Docker installed
+
+Backend image built
+
+Frontend image built
+
+Backend container deployed
+
+Frontend container deployed
+
+Application verified in browser
+
+12. Future Improvements
+
+For a production-oriented version:
+
+Add HTTPS and a domain name.
+
+Put an Application Load Balancer in front of the application.
+
+Use private application subnets.
+
+Use AWS Secrets Manager or SSM Parameter Store.
+
+Add CloudWatch monitoring and centralized logs.
+
+Add automated CI/CD with GitHub Actions or Jenkins.
+
+Use multiple application instances for high availability.
+
+Consider ECS or EKS for container orchestration.
+
+13. Repository Structure
+
+CRM-project/
+├── Dockerfile.backend
+├── frontend/
+│   ├── Dockerfile
+│   └── ...
+├── requirements.txt
+├── main.py
+├── create_tables.py
+├── seed_db.py
+└── README.md
